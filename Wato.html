@@ -1,0 +1,208 @@
+
+<!DOCTYPE html>
+<html lang="en" >
+
+<head>
+  <meta charset="UTF-8">
+  
+  
+  
+
+  <title>What are the odds</title>
+
+    <link rel="canonical" href="https://codepen.io/vpelss/pen/gOVqgeP">
+  
+  
+  
+  
+
+  
+  
+  
+</head>
+
+<body>
+  <html>
+
+<head>
+  <title>What are the odds?</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+
+<body>
+
+  <div id="errordiv"></div>
+
+  <form>
+    <textarea id="user_input" rows="6" columns="10" placeholder="eg: 4r5d6s means four rolls of 5 dice with six sides">  50r2d[1,2,3,9,10]s 
+      507r2d6s 
+      </textarea>
+    <p></p>
+    <button type="button" id="roll" value="1">Roll the Bones</button>
+    <p></p>
+    <button type="button" id="runforest" value="1">Run Forest</button>
+  </form>
+
+  <canvas id="_myPlot" style="width:100%;max-width:700px"></canvas>
+
+  <div id="myPlot" style="width:100%;max-width:700px"></div>
+
+  <script id="worker" _type="javascript/worker">
+    onmessage = function(event) {
+      var input = event.data;
+      //var input = JSON.parse(txt);
+      Start_Worker(input);
+    };
+
+    function Start_Worker(input) {
+      let rolls = input.rolls;
+      let dice = input.dice;
+      let sides_array = input.sides_array;
+      //calc and display
+      let outcome_array = [];
+      for (let r = 1; r <= rolls; r++) {
+        let outcome = 0;
+        //let sum = 0;
+        for (let d = 1; d <= dice; d++) {
+          let num = Math.floor(Math.random() * sides_array.length);
+          outcome = outcome + sides_array[num];
+        }
+        if (typeof outcome_array[outcome] == "undefined") { //new array item
+          outcome_array[outcome] = 0;
+        }
+        outcome_array[outcome]++;
+        //send it back to graph
+        postMessage(outcome_array);
+    }
+      postMessage('done');
+    }
+      
+  </script>
+
+</body>
+
+</html>
+  
+      <script id="rendered-js" >
+// 4r5d6s means roll 4 times with 5 dice of 6 sides
+//x range will be # dice * lowest value to # dice * highest value
+// each roll we roll the # of dice and take the sum and increase the x array for that sum by one
+
+//set html events
+let roll_button = document.getElementById("roll");
+roll_button.onclick = Start;
+let run_forest = document.getElementById("runforest");
+run_forest.onclick = RunForestRun;
+
+function Parse(text) {
+  const re = /^(\d+)r(\d+)d(\d+|\[(?:\d+,)*\d+\])s/;
+  //remove whitespace
+  text = text.trim();
+  text = text.replaceAll(" ", "");
+  const found = text.match(re);
+  if (found == null) {
+    let msg = "Parse error in " + text;
+    document.getElementById("errordiv").innerHTML = msg;
+    throw new Error(msg);
+  }
+  //build die
+  let sides = RegExp.$3;
+  let sides_array;
+  // 3 to [1 .. 3];
+  if (!isNaN(sides)) {
+    let numberme = Number(sides);
+    sides_array = [...Array(numberme).keys()].map((x) => x + 1);
+  } else {
+    sides_array = JSON.parse(sides);
+  }
+  //sort side_array
+  sides_array = sides_array.sort();
+  return [RegExp.$1, RegExp.$2, sides_array];
+}
+
+function Start() {
+  //parse
+  let text = document.getElementById("user_input").value;
+  let [rolls, dice, sides_array] = Parse(text);
+
+  //calc and display
+  let outcome_array = [];
+  for (let r = 1; r <= rolls; r++) {
+    let outcome = 0;
+    //let sum = 0;
+    for (let d = 1; d <= dice; d++) {
+      let num = Math.floor(Math.random() * sides_array.length);
+      outcome = outcome + sides_array[num];
+    }
+    if (typeof outcome_array[outcome] == "undefined") {
+      outcome_array[outcome] = 0;
+    }
+    outcome_array[outcome]++;
+    //graph it
+    xArray = outcome_array.keys();
+    const data = [
+      {
+        x: xArray,
+        y: outcome_array,
+        type: "bar"
+      }
+    ];
+    const layout = { title: "Dice Rolls Over Time" };
+    Plotly.newPlot("myPlot", data, layout);
+  }
+
+  //log
+  console.log(outcome_array);
+}
+
+//inline worker
+var blob = new Blob([document.querySelector("#worker").textContent], {
+  type: "text/javascript"
+});
+var worker = new Worker(window.URL.createObjectURL(blob));
+
+let roll_counter;
+//messages from webworker
+worker.onmessage = function (event) {
+  if (typeof event.data == "string") {
+    if (event.data.startsWith("done")) {
+      document.getElementById("errordiv").innerHTML = "done";
+    }
+  }
+  // if(typeof typeof event.data == "array"){
+  if (Array.isArray(event.data)) {
+    outcome_array = event.data;
+    //graph it
+    xArray = outcome_array.keys();
+    const data = [
+      {
+        x: xArray,
+        y: outcome_array,
+        type: "bar"
+      }
+    ];
+    roll_counter++;
+    const layout = { title: "Dice Rolls Over Time" + roll_counter };
+    Plotly.newPlot("myPlot", data, layout);
+  }
+};
+
+function RunForestRun() {
+  //parse
+  roll_counter = 0;
+  document.getElementById("errordiv").innerHTML = "Start";
+  let text = document.getElementById("user_input").value;
+  let [rolls, dice, sides_array] = Parse(text);
+  let parsed_object = {
+    rolls: rolls,
+    dice: dice,
+    sides_array: sides_array
+  };
+  worker.postMessage(parsed_object);
+}
+    </script>
+
+  
+</body>
+
+</html>
