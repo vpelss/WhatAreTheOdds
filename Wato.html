@@ -26,6 +26,7 @@
 
 <head>
   <title>What are the odds?</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 </head>
 
@@ -34,18 +35,17 @@
   <div id="errordiv"></div>
 
   <form>
-    <textarea id="user_input" rows="6" columns="10" placeholder="eg: 4r5d6s means four rolls of 5 dice with six sides">  50r2d[1,2,3,9,10]s 
+    <label for="skip">Plot every:</label>
+<input type="number" id="skip" name="skip" min="0" max="5000" value="1">
+    <p></p>
+    <textarea id="user_input" rows="6" columns="10" placeholder="eg: 4r5d6s means four rolls of 5 dice with six sides">  50r10d6s 
       507r2d6s 
       </textarea>
     <p></p>
-    <button type="button" id="roll" value="1">Roll the Bones</button>
-    <p></p>
-    <button type="button" id="runforest" value="1">Run Forest</button>
+    <button type="button" id="runforest" value="1">Roll the bones</button>
   </form>
 
-  <canvas id="_myPlot" style="width:100%;max-width:700px"></canvas>
-
-  <div id="myPlot" style="width:100%;max-width:700px"></div>
+   <div id="myPlot" style="width:100%;"></div>
 
   <script id="worker" _type="javascript/worker">
     onmessage = function(event) {
@@ -87,10 +87,9 @@
 // 4r5d6s means roll 4 times with 5 dice of 6 sides
 //x range will be # dice * lowest value to # dice * highest value
 // each roll we roll the # of dice and take the sum and increase the x array for that sum by one
+//see: https://anydice.com/
 
 //set html events
-let roll_button = document.getElementById("roll");
-roll_button.onclick = Start;
 let run_forest = document.getElementById("runforest");
 run_forest.onclick = RunForestRun;
 
