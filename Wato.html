@@ -971,44 +971,97 @@ function Parse(text) {
   return [RegExp.$1, RegExp.$2, sides_array];
 }
 
-/*
-//inline worker
-var blob = new Blob([document.querySelector("#worker").textContent], {
-  type: "text/javascript"
-});
-var worker = new Worker(window.URL.createObjectURL(blob));
-
-//messages from webworker
-worker.onmessage = function (event) {
-  if (typeof event.data == "string") {
-    if (event.data.startsWith("done")) {
-      document.getElementById("errordiv").innerHTML = "done";
-    }
-  }
-  if (Array.isArray(event.data)) {
-    outcome_array = event.data;
-    //graph it
-    xArray = outcome_array.keys();
-    const data = [
-      {
-        x: xArray,
-        y: outcome_array,
-        type: "bar"
-      }
-    ];
-    roll_counter++;
-    const layout = { title: "Dice Rolls Over Time" + roll_counter };
-    Plotly.newPlot("myPlot", data, layout);
-  }
-};
-*/
-
 let roll_counter;
 let lines;
 let workers = [];
+let skip;
 function RunForestRun() {
+  skip = Number(document.getElementById("skip").value);
   //parse
-  roll_counter = 0;
+  roll_counter = [];
+  document.getElementById("errordiv").innerHTML = "Start";
+  let text = document.getElementById("user_input").value;
+  text = text.replaceAll(" ", ""); //space free
+  //get lines
+  lines = text.split(/\r?\n/);
+  lines = lines.filter((x) => x != ""); //remove blank lines
+
+  //get inline webworker code
+  var inline_webworker_blob = new Blob(
+    [document.querySelector("#worker").textContent],
+    { type: "text/javascript" }
+  );
+
+  for (let ln = 0; ln < lines.length; ln++) {
+    let [rolls, dice, sides_array] = Parse(lines[ln]);
+    if (rolls == null) {
+      coninue;
+    }
+
+    //create Ploty[x]
+    //create a Ploty for line
+    let div = document.createElement("div");
+    div.style.width = "100%";
+    div.id = "Ploty" + ln;
+    document.getElementById("plots").appendChild(div);
+
+    //create worker[x]
+    //create a webworker and reply routine for line
+    workers[ln] = new Worker(window.URL.createObjectURL(inline_webworker_blob));
+    //messages from webworker
+    //create worker[x].onmessage
+    workers[ln].onmessage = function (event) {
+      if (typeof event.data == "string") {
+        if (event.data.startsWith("done")) {
+          document.getElementById("errordiv").innerHTML = "done";
+          //PRINT ONE LAST TIME!!!
+          workers[ln].terminate();
+        }
+      }
+      if (Array.isArray(event.data)) {
+        outcome_array = event.data;
+        //graph it
+        xArray = outcome_array.keys();
+        const data = [
+          {
+            x: xArray,
+            y: outcome_array,
+            type: "bar"
+          }
+        ];
+        if (typeof roll_counter[ln] == "undefined") {
+          roll_counter[ln] = 0;
+        }
+        roll_counter[ln]++;
+        const layout = {
+          title: "Line " + (ln + 1) + " Dice Rolls Over Time" + roll_counter
+        };
+        if (roll_counter[ln] % skip == 0) {
+          //only print on the Xth
+          Plotly.newPlot(div.id, data, layout);
+        }
+      }
+    };
+
+    //start webworker
+    //let [rolls, dice, sides_array] = Parse(lines[0]);
+    let parsed_object = {
+      rolls: rolls,
+      dice: dice,
+      sides_array: sides_array
+    };
+    workers[ln].postMessage(parsed_object);
+  }
+}
+
+
+
+
+
+
+ skip = Number(document.getElementById("skip").value);
+  //parse
+  roll_counter = [];
   document.getElementById("errordiv").innerHTML = "Start";
   let text = document.getElementById("user_input").value;
   text = text.replaceAll(" ", ""); //space free
@@ -1044,6 +1097,7 @@ function RunForestRun() {
       if (typeof event.data == "string") {
         if (event.data.startsWith("done")) {
           document.getElementById("errordiv").innerHTML = "done";
+          //PRINT ONE LAST TIME!!!
            workers[ln].terminate();
         }
       }
@@ -1065,11 +1119,13 @@ function RunForestRun() {
         const layout = {
           title: "Line " + (ln + 1) + " Dice Rolls Over Time" + roll_counter
         };
+       //if( roll_counter[ln] % skip == 0){ //only print on the Xth
         Plotly.newPlot(div.id , data , layout);
+       //}
       }
-    };
-
-    //start webworker
+    }
+    
+        //start webworker
     //let [rolls, dice, sides_array] = Parse(lines[0]);
     let parsed_object = {
       rolls: rolls,
@@ -1078,17 +1134,10 @@ function RunForestRun() {
     };
     workers[ln].postMessage(parsed_object);
   }
+    
+ 
 
-  /*
-  let [rolls, dice, sides_array] = Parse(lines[0]);
-  let parsed_object = {
-    rolls: rolls,
-    dice: dice,
-    sides_array: sides_array
-  };
-  worker.postMessage(parsed_object);
-  */
-}
+h = 8;
     </script>
 
   
