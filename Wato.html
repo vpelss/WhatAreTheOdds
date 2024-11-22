@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en" >
 
@@ -1011,15 +1012,40 @@ var inline_webworker_blob = new Blob(
   { type: "text/javascript" }
 );
 
-//var roll_counter;
-var lines;
-var workers = [];
-var skip;
-const MAX_WORKERS = navigator.hardwareConcurrency - 1;
 let webworker; //outside function to be persistant so we can test in function RunForestRun
 
 function RunForestRun() {
-  if (webworker) { //if it is running, shut it down. Our master has requested a new run
+  document.getElementById("plots").innerHTML = ""; //clear plots if any
+  skip = Number(document.getElementById("skip").value);
+  document.getElementById("errordiv").innerHTML = "Start";
+  let lines_text = document.getElementById("user_input").value;
+  lines_text = lines_text.replaceAll(" ", ""); //space free
+  //get lines
+  lines = lines_text.split(/\r?\n/);
+  lines = lines.filter((x) => x != ""); //remove blank lines
+  let lines_toWebworker = [];
+  let plotty_count = 0;
+  for (let ln = 0; ln < lines.length; ln++) {
+    //for each line
+    let [rolls, dice, sides_array] = Parse(lines[ln]);
+    if (rolls == null) {
+      //line did not parse
+      continue;
+    }
+    lines_toWebworker.push({
+      rolls: rolls,
+      dice: dice,
+      sides_array: sides_array
+    });
+    //create a Ploty for line
+    let div = document.createElement("div");
+    div.style.width = "100%";
+    div.id = "Ploty" + plotty_count;
+    plotty_count++;
+    document.getElementById("plots").appendChild(div);
+  }
+  if (webworker) {
+    //if it is running, shut it down. Our master has requested a new run
     webworker.terminate();
   }
   webworker = new Worker(window.URL.createObjectURL(inline_webworker_blob));
@@ -1028,7 +1054,6 @@ function RunForestRun() {
     let output = event.data;
     roll_arrays = output.roll_arrays;
     roll_counts = output.roll_counts;
-
     for (let ln = 0; ln < roll_arrays.length; ln++) {
       //let count = lines[ln]["count"];
       //outcome_array = lines[ln]["outcome_array"];
@@ -1048,33 +1073,6 @@ function RunForestRun() {
       Plotly.newPlot("Ploty" + ln, data, layout);
     }
   };
-
-  skip = Number(document.getElementById("skip").value);
-  //parse
-  document.getElementById("errordiv").innerHTML = "Start";
-  let text = document.getElementById("user_input").value;
-  text = text.replaceAll(" ", ""); //space free
-  //get lines
-  lines = text.split(/\r?\n/);
-  lines = lines.filter((x) => x != ""); //remove blank lines
-  let lines_toWebworker = [];
-  for (let ln = 0; ln < lines.length; ln++) {
-    let [rolls, dice, sides_array] = Parse(lines[ln]);
-    lines_toWebworker.push({
-      rolls: rolls,
-      dice: dice,
-      sides_array: sides_array
-    });
-    if (rolls == null) {
-      //line did not parse
-      continue;
-    }
-    //create a Ploty for line
-    let div = document.createElement("div");
-    div.style.width = "100%";
-    div.id = "Ploty" + ln;
-    document.getElementById("plots").appendChild(div);
-  }
   //start webworker
   webworker.postMessage({ skip: skip, lines_toWebworker: lines_toWebworker });
 }
