@@ -875,7 +875,7 @@ th {
   <title>What are the odds?</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-  
+
 </head>
 
 <body>
@@ -884,49 +884,84 @@ th {
 
   <form>
     <label for="skip">Plot every:</label>
-<input type="number" id="skip" name="skip" min="0" max="5000" value="1">
+    <input type="number" id="skip" name="skip" min="0" max="5000" value="1">
     <p></p>
-    <textarea id="user_input" rows="6" columns="10" placeholder="eg: 4r5d6s means four rolls of 5 dice with six sides">  50r10d6s
-      507r2d6s 
+    <textarea id="user_input" rows="6" columns="10" placeholder="eg: 4r5d6s means four rolls of 5 dice with six sides">  100r10d6s
+      107r2d6s 
       </textarea>
     <p></p>
     <button type="button" id="runforest" value="1">Roll the bones</button>
   </form>
 
-   <div id="myPlot" style="width:100%;"></div>
+  <div id="myPlot" style="width:100%;"></div>
 
   <div id="plots"></div>
-  
+
   <script id="worker" _type="javascript/worker">
     onmessage = function(event) {
       var input = event.data;
-      //var input = JSON.parse(txt);
       Start_Worker(input);
     };
 
     function Start_Worker(input) {
-      let rolls = input.rolls;
-      let dice = input.dice;
-      let sides_array = input.sides_array;
-      //calc and display
-      let outcome_array = [];
-      for (let r = 1; r <= rolls; r++) {
-        let outcome = 0;
-        //let sum = 0;
-        for (let d = 1; d <= dice; d++) {
-          let num = Math.floor(Math.random() * sides_array.length);
-          outcome = outcome + sides_array[num];
+      let lines = input.lines_toWebworker
+      let skip = input.skip;
+      let roll_arrays = [];
+      let rolls = [];
+      let dice = [];
+      let sides_array = [];
+      //maybe put in main loop
+      for (let ln = 0; ln < lines.length; ln++) {
+        let line = lines[ln];
+        rolls[ln] = line.rolls;
+        dice[ln] = line.dice;
+        sides_array[ln] = line.sides_array;
+      }
+      let roll_count = 0;
+      let done;
+      do { //for each roll
+        done = 1; //assume we are done. prove otherwise.
+        //for each line
+        for (let ln = 0; ln < lines.length; ln++) {
+          //sum dice 
+          let sum = 0;
+          //let sum = 0;
+          for (let d = 1; d <= dice[ln]; d++) { //# or dice to roll
+            //randomly choose a die side 
+            let side = Math.floor(Math.random() * sides_array[ln].length);
+            //what is its value?
+            let value = sides_array[ln][side];
+            sum = sum + value;
+          }
+          //add to roll_arrays
+          if (typeof roll_arrays[ln] == "undefined") {
+            roll_arrays[ln] = [];
+          }
+          if (typeof roll_arrays[ln][sum] == "undefined") { //new array item
+            roll_arrays[ln][sum] = 0;
+          }
+          //increase roll count by 1
+          roll_arrays[ln][sum]++;
+          //test to see iff all rolls have been completed
+          roll_count++;
+          if (rolls[ln] > roll_count) { //still not done
+            done = 0;
+          }
+          if (roll_count % skip == 0) {
+            postMessage({
+              "roll_count": roll_count,
+              "roll_arrays": roll_arrays
+            });
+          }
         }
-        if (typeof outcome_array[outcome] == "undefined") { //new array item
-          outcome_array[outcome] = 0;
-        }
-        outcome_array[outcome]++;
-        //send it back to graph
-        postMessage(outcome_array);
+      }
+      while (!done);
+      //one more print!
+      postMessage({
+        "roll_count": roll_count,
+        "roll_arrays": roll_arrays
+      });
     }
-      postMessage('done');
-    }
-      
   </script>
 
 </body>
@@ -937,7 +972,7 @@ th {
 // 4r5d6s means roll 4 times with 5 dice of 6 sides
 //x range will be # dice * lowest value to # dice * highest value
 // each roll we roll the # of dice and take the sum and increase the x array for that sum by one
-//see: https://anydice.com/
+//see: https://github.com/vpelss/WhatAreTheOdds
 
 //set html events
 let run_forest = document.getElementById("runforest");
@@ -971,173 +1006,79 @@ function Parse(text) {
   return [RegExp.$1, RegExp.$2, sides_array];
 }
 
-let roll_counter;
-let lines;
-let workers = [];
-let skip;
+//get inline webworker code. MUST be outside function if we want concurancy
+var inline_webworker_blob = new Blob(
+  [document.querySelector("#worker").textContent],
+  { type: "text/javascript" }
+);
+
+var roll_counter;
+var lines;
+var workers = [];
+var skip;
+const MAX_WORKERS = navigator.hardwareConcurrency - 1;
+let webworker; //outside function to be persistant so we can test in function RunForestRun
+
 function RunForestRun() {
+  if (webworker) { //if it is running, shut it down. Our master has requested a new run
+    webworker.terminate();
+  }
+  webworker = new Worker(window.URL.createObjectURL(inline_webworker_blob));
+  //messages from webworker
+  webworker.onmessage = function (event) {
+    let output = event.data;
+    roll_arrays = output.roll_arrays;
+    roll_count = output.roll_count;
+
+    for (let ln = 0; ln < roll_arrays.length; ln++) {
+      //let count = lines[ln]["count"];
+      //outcome_array = lines[ln]["outcome_array"];
+      outcome_array = roll_arrays[ln];
+      //graph them
+      xArray = outcome_array.keys();
+      const data = [
+        {
+          x: xArray,
+          y: outcome_array,
+          type: "bar"
+        }
+      ];
+      const layout = {
+        title: "Line " + (ln + 1) + " : " + roll_count + " Dice Rolls Over"
+      };
+      Plotly.newPlot("Ploty" + ln, data, layout);
+    }
+  };
+
   skip = Number(document.getElementById("skip").value);
   //parse
-  roll_counter = [];
   document.getElementById("errordiv").innerHTML = "Start";
   let text = document.getElementById("user_input").value;
   text = text.replaceAll(" ", ""); //space free
   //get lines
   lines = text.split(/\r?\n/);
   lines = lines.filter((x) => x != ""); //remove blank lines
-
-  //get inline webworker code
-  var inline_webworker_blob = new Blob(
-    [document.querySelector("#worker").textContent],
-    { type: "text/javascript" }
-  );
-
+  let lines_toWebworker = [];
   for (let ln = 0; ln < lines.length; ln++) {
     let [rolls, dice, sides_array] = Parse(lines[ln]);
+    lines_toWebworker.push({
+      rolls: rolls,
+      dice: dice,
+      sides_array: sides_array
+    });
     if (rolls == null) {
-      coninue;
+      //line did not parse
+      continue;
     }
-
-    //create Ploty[x]
     //create a Ploty for line
     let div = document.createElement("div");
     div.style.width = "100%";
     div.id = "Ploty" + ln;
     document.getElementById("plots").appendChild(div);
-
-    //create worker[x]
-    //create a webworker and reply routine for line
-    workers[ln] = new Worker(window.URL.createObjectURL(inline_webworker_blob));
-    //messages from webworker
-    //create worker[x].onmessage
-    workers[ln].onmessage = function (event) {
-      if (typeof event.data == "string") {
-        if (event.data.startsWith("done")) {
-          document.getElementById("errordiv").innerHTML = "done";
-          //PRINT ONE LAST TIME!!!
-          workers[ln].terminate();
-        }
-      }
-      if (Array.isArray(event.data)) {
-        outcome_array = event.data;
-        //graph it
-        xArray = outcome_array.keys();
-        const data = [
-          {
-            x: xArray,
-            y: outcome_array,
-            type: "bar"
-          }
-        ];
-        if (typeof roll_counter[ln] == "undefined") {
-          roll_counter[ln] = 0;
-        }
-        roll_counter[ln]++;
-        const layout = {
-          title: "Line " + (ln + 1) + " Dice Rolls Over Time" + roll_counter
-        };
-        if (roll_counter[ln] % skip == 0) {
-          //only print on the Xth
-          Plotly.newPlot(div.id, data, layout);
-        }
-      }
-    };
-
-    //start webworker
-    //let [rolls, dice, sides_array] = Parse(lines[0]);
-    let parsed_object = {
-      rolls: rolls,
-      dice: dice,
-      sides_array: sides_array
-    };
-    workers[ln].postMessage(parsed_object);
   }
+  //start webworker
+  webworker.postMessage({ skip: skip, lines_toWebworker: lines_toWebworker });
 }
-
-
-
-
-
-
- skip = Number(document.getElementById("skip").value);
-  //parse
-  roll_counter = [];
-  document.getElementById("errordiv").innerHTML = "Start";
-  let text = document.getElementById("user_input").value;
-  text = text.replaceAll(" ", ""); //space free
-  //get lines
-  lines = text.split(/\r?\n/);
-  lines = lines.filter((x) => x != ""); //remove blank lines
-
-  //get inline webworker code
-  var inline_webworker_blob = new Blob(
-    [document.querySelector("#worker").textContent],
-    { type: "text/javascript" }
-  );
-
-  for (let ln = 0; ln < lines.length; ln++) {
-    let [rolls, dice, sides_array] = Parse(lines[ln]);
-    if ((rolls == null)) {
-      coninue;
-    }
-
-    //create Ploty[x]
-    //create a Ploty for line
-    let div = document.createElement("div");
-    div.style.width = "100%";
-    div.id = "Ploty" + ln;
-    document.getElementById("plots").appendChild(div);
-
-    //create worker[x]
-    //create a webworker and reply routine for line
-    workers[ln] = new Worker(window.URL.createObjectURL(inline_webworker_blob));
-    //messages from webworker
-    //create worker[x].onmessage
-    workers[ln].onmessage = function (event) {
-      if (typeof event.data == "string") {
-        if (event.data.startsWith("done")) {
-          document.getElementById("errordiv").innerHTML = "done";
-          //PRINT ONE LAST TIME!!!
-           workers[ln].terminate();
-        }
-      }
-      if (Array.isArray(event.data)) {
-        outcome_array = event.data;
-        //graph it
-        xArray = outcome_array.keys();
-        const data = [
-          {
-            x: xArray,
-            y: outcome_array,
-            type: "bar"
-          }
-        ];
-        if (typeof roll_counter[ln] == "undefined") {
-          roll_counter[ln] = 0;
-        }
-        roll_counter[ln]++;
-        const layout = {
-          title: "Line " + (ln + 1) + " Dice Rolls Over Time" + roll_counter
-        };
-       //if( roll_counter[ln] % skip == 0){ //only print on the Xth
-        Plotly.newPlot(div.id , data , layout);
-       //}
-      }
-    }
-    
-        //start webworker
-    //let [rolls, dice, sides_array] = Parse(lines[0]);
-    let parsed_object = {
-      rolls: rolls,
-      dice: dice,
-      sides_array: sides_array
-    };
-    workers[ln].postMessage(parsed_object);
-  }
-    
- 
-
-h = 8;
     </script>
 
   
