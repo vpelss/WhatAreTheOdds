@@ -7,4 +7,4 @@ Our version gives realtime roll results, not the odds.
 
 Inspired by: https://anydice.com/ and https://megadoug.com/dice-graph/
 
-Gives the odds for dice rolls.
+These give the odds for dice rolls.
