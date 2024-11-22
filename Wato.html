@@ -883,12 +883,13 @@ th {
   <div id="errordiv"></div>
 
   <form>
-    <label for="skip">Plot every:</label>
-    <input type="number" id="skip" name="skip" min="0" max="5000" value="1">
-    <p></p>
-    <textarea id="user_input" rows="6" columns="10" placeholder="eg: 4r5d6s means four rolls of 5 dice with six sides">  100r10d6s
-      107r2d6s 
+    <label for="user_input">Input dice rolls:</label>
+    <textarea id="user_input" name="user_input" rows="6" cols="30" placeholder="eg: 4r5d6s means four rolls of 5 dice with six sides">  1000r10d6s
+      2000r2d[1,2,3,4,5,6,6,6,6,6]s 
       </textarea>
+    <p>One entry per line. 1000r10d6s means 1000 rolls of 10 dice with six sides. Dice can be loaded. eg: 1000r10d[1,2,3,4,5,6,6,6]s is a six sided die that has odds of 6 show 3 in 8 and ods of 1 to 5 show 1 in 8 for each.</p>
+    <label for="skip">Plot every:</label>
+    <input type="number" id="skip" name="skip" min="0" max="5000" value="10">
     <p></p>
     <button type="button" id="runforest" value="1">Roll the bones</button>
   </form>
@@ -910,46 +911,44 @@ th {
       let rolls = [];
       let dice = [];
       let sides_array = [];
-      //maybe put in main loop
-      for (let ln = 0; ln < lines.length; ln++) {
-        let line = lines[ln];
-        rolls[ln] = line.rolls;
-        dice[ln] = line.dice;
-        sides_array[ln] = line.sides_array;
-      }
-      let roll_count = 0;
+      let roll_counts = [];
       let done;
       do { //for each roll
         done = 1; //assume we are done. prove otherwise.
         //for each line
         for (let ln = 0; ln < lines.length; ln++) {
+          //test to see if all rolls have been completed
+          if (typeof roll_counts[ln] == "undefined") { //create if required
+            roll_counts[ln] = 0;
+          }
+          if (lines[ln].rolls > roll_counts[ln]) { //still not done
+            roll_counts[ln]++;
+            done = 0;
+          } else { //this line is done
+            continue;
+          }
           //sum dice 
           let sum = 0;
           //let sum = 0;
-          for (let d = 1; d <= dice[ln]; d++) { //# or dice to roll
+          for (let d = 1; d <= lines[ln].dice; d++) { //# or dice to roll
             //randomly choose a die side 
-            let side = Math.floor(Math.random() * sides_array[ln].length);
+            let side = Math.floor(Math.random() * lines[ln].sides_array.length);
             //what is its value?
-            let value = sides_array[ln][side];
+            let value = lines[ln].sides_array[side];
             sum = sum + value;
           }
           //add to roll_arrays
-          if (typeof roll_arrays[ln] == "undefined") {
+          if (typeof roll_arrays[ln] == "undefined") { //create if required
             roll_arrays[ln] = [];
           }
-          if (typeof roll_arrays[ln][sum] == "undefined") { //new array item
+          if (typeof roll_arrays[ln][sum] == "undefined") { //create if required
             roll_arrays[ln][sum] = 0;
           }
           //increase roll count by 1
           roll_arrays[ln][sum]++;
-          //test to see iff all rolls have been completed
-          roll_count++;
-          if (rolls[ln] > roll_count) { //still not done
-            done = 0;
-          }
-          if (roll_count % skip == 0) {
+          if (roll_counts[ln] % skip == 0) {
             postMessage({
-              "roll_count": roll_count,
+              "roll_counts": roll_counts,
               "roll_arrays": roll_arrays
             });
           }
@@ -958,7 +957,7 @@ th {
       while (!done);
       //one more print!
       postMessage({
-        "roll_count": roll_count,
+        "roll_counts": roll_counts,
         "roll_arrays": roll_arrays
       });
     }
@@ -1012,7 +1011,7 @@ var inline_webworker_blob = new Blob(
   { type: "text/javascript" }
 );
 
-var roll_counter;
+//var roll_counter;
 var lines;
 var workers = [];
 var skip;
@@ -1028,7 +1027,7 @@ function RunForestRun() {
   webworker.onmessage = function (event) {
     let output = event.data;
     roll_arrays = output.roll_arrays;
-    roll_count = output.roll_count;
+    roll_counts = output.roll_counts;
 
     for (let ln = 0; ln < roll_arrays.length; ln++) {
       //let count = lines[ln]["count"];
@@ -1044,7 +1043,7 @@ function RunForestRun() {
         }
       ];
       const layout = {
-        title: "Line " + (ln + 1) + " : " + roll_count + " Dice Rolls Over"
+        title: "Line " + (ln + 1) + " : " + roll_counts[ln] + " Dice Rolls Over"
       };
       Plotly.newPlot("Ploty" + ln, data, layout);
     }
