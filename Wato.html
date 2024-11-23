@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en" >
 
@@ -875,18 +876,19 @@ th {
   <title>What are the odds?</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-
 </head>
 
 <body>
+  <p>Also at: <a href="https://codepen.io/vpelss/pen/gOVqgeP" target="blank">https://codepen.io/vpelss/pen/gOVqgeP</a>, <a href="https://www.emogic.com/mine/WhatAreTheOdds/" target="blank">https://www.emogic.com/mine/WhatAreTheOdds/</a> and <a href="https://github.com/vpelss/WhatAreTheOdds" target="blank">https://github.com/vpelss/WhatAreTheOdds</a></p>
+  <p>Inspiration from <a href="https://anydice.com/" target="blank">https://anydice.com/</a> and <a href="https://megadoug.com/dice-graph/" target="blank">https://megadoug.com/dice-graph/</a></p>
+  <p>This will allow a plot of the sums of R rolls with D dice that have S sides.</p>
+
   <form>
-    <p>This will allow plot the sums of R rolls of D dice with S sides.</p>
-    <p>Inspiration from <a href="https://anydice.com/" target="blank">https://anydice.com/</a> and <a href="https://megadoug.com/dice-graph/" target="blank">https://megadoug.com/dice-graph/</a></p>
     <label for="user_input">Input dice rolls:</label>
-    <textarea id="user_input" name="user_input" rows="6" cols="30" placeholder="eg: 4r5d6s means four rolls of 5 dice with six sides">1000r10d6s
+    <textarea id="user_input" name="user_input" rows="6" cols="30" placeholder="eg: 4r5d6s means four rolls of 5 dice with six sides">10000r2d50s
 2000r2d[1,2,3,4,5,6,6,6,6,6]s 
 </textarea>
-    <p>One entry per line. 1000r10d6s means 1000 rolls of 10 dice with six sides. Dice can be loaded. eg: 1000r10d[1,2,3,4,5,6,6,6]s is a six sided die that has odds of 6 show 3 in 8 and ods of 1 to 5 show 1 in 8 for each.</p>
+    <p>One entry per line. 1000r10d6s means 1000 rolls of 10 dice with six sides. Dice can be loaded. eg: 1000r10d[1,2,3,4,5,6,6,6]s is a six sided die where a roll of 6 is three times more likely.</p>
     <label for="skip">Plot every:</label>
     <input type="number" id="skip" name="skip" min="0" max="5000" value="10">
     <p></p>
@@ -968,7 +970,8 @@ th {
   
       <script id="rendered-js" >
 // 4r5d6s means roll 4 times with 5 dice of 6 sides
-// each roll we roll the # of dice and take the sum and increase the x array for that sum by one
+//1000r10d[1,2,3,4,5,6,6,6]s is a six sided die where a roll of 6 is three times more likely.
+// we roll R times. For each roll we roll D dice and take the sum. We then increase the array position of that sum by one
 //see: https://github.com/vpelss/WhatAreTheOdds
 
 //set html events
