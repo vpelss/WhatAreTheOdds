@@ -1,7 +1,7 @@
 # WhatAreTheOdds
 Dice Rolling with accumulated results
 
-See: https://codepen.io/vpelss/pen/gOVqgeP
+Also at: https://codepen.io/vpelss/pen/gOVqgeP, https://www.emogic.com/mine/WhatAreTheOdds/ and https://github.com/vpelss/WhatAreTheOdds
 
 Our version gives realtime roll results, not the odds.
 
