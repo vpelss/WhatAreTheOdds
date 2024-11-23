@@ -872,89 +872,87 @@ th {
 
 <body>
   <p>Also at: <a href="https://codepen.io/vpelss/pen/gOVqgeP" target="blank">https://codepen.io/vpelss/pen/gOVqgeP</a>, <a href="https://www.emogic.com/mine/WhatAreTheOdds/" target="blank">https://www.emogic.com/mine/WhatAreTheOdds/</a> and <a href="https://github.com/vpelss/WhatAreTheOdds" target="blank">https://github.com/vpelss/WhatAreTheOdds</a></p>
-  <p>Inspiration from <a href="https://anydice.com/" target="blank">https://anydice.com/</a> and <a href="https://megadoug.com/dice-graph/" target="blank">https://megadoug.com/dice-graph/</a></p>
-  <p>This will allow a plot of the sums of R rolls with D dice that have S sides.</p>
+<p>Inspiration from <a href="https://anydice.com/" target="blank">https://anydice.com/</a> and <a href="https://megadoug.com/dice-graph/" target="blank">https://megadoug.com/dice-graph/</a></p>
+<p>This will allow a plot of the sums of R rolls with D dice that have S sides.</p>
 
-  <form>
-    <label for="user_input">Input dice rolls:</label>
-    <textarea id="user_input" name="user_input" rows="6" cols="30" placeholder="eg: 4r5d6s means four rolls of 5 dice with six sides">10000r2d50s
+<form>
+  <label for="user_input">Input dice rolls:</label>
+  <textarea id="user_input" name="user_input" rows="6" cols="30" placeholder="eg: 4r5d6s means four rolls of 5 dice with six sides">10000r2d50s
 2000r2d[1,2,3,4,5,6,6,6,6,6]s 
 </textarea>
-    <p>One entry per line. 1000r10d6s means 1000 rolls of 10 dice with six sides. Dice can be loaded. eg: 1000r10d[1,2,3,4,5,6,6,6]s is a six sided die where a roll of 6 is three times more likely.</p>
-    <label for="skip">Plot every:</label>
-    <input type="number" id="skip" name="skip" min="0" max="5000" value="10">
-    <p></p>
-    <button type="button" id="runforest" value="1">Roll the bones</button>
-  </form>
+  <p>One entry per line. 1000r10d6s means 1000 rolls of 10 dice with six sides. Dice can be loaded. eg: 1000r10d[1,2,3,4,5,6,6,6]s is a six sided die where a roll of 6 is three times more likely.</p>
+  <label for="skip">Plot every:</label>
+  <input type="number" id="skip" name="skip" min="0" max="5000" value="10">
+  <p></p>
+  <button type="button" id="runforest" value="1">Roll the bones</button>
+</form>
 
-  <div id="myPlot" style="width:100%;"></div>
+<div id="plots"></div>
 
-  <div id="plots"></div>
+<script id="webworker" _type="javascript/worker">
+  onmessage = function(event) {
+    var input = event.data;
+    Start_Worker(input);
+  };
 
-  <script id="worker" _type="javascript/worker">
-    onmessage = function(event) {
-      var input = event.data;
-      Start_Worker(input);
-    };
-
-    function Start_Worker(input) {
-      let lines = input.lines_toWebworker
-      let skip = input.skip;
-      let roll_arrays = [];
-      let rolls = [];
-      let dice = [];
-      let sides_array = [];
-      let roll_counts = [];
-      let done;
-      do { //for each roll
-        done = 1; //assume we are done. prove otherwise.
-        //for each line
-        for (let ln = 0; ln < lines.length; ln++) {
-          //test to see if all rolls have been completed
-          if (typeof roll_counts[ln] == "undefined") { //create if required
-            roll_counts[ln] = 0;
-          }
-          if (lines[ln].rolls > roll_counts[ln]) { //still not done
-            roll_counts[ln]++;
-            done = 0;
-          } else { //this line is done
-            continue;
-          }
-          //sum dice 
-          let sum = 0;
-          //let sum = 0;
-          for (let d = 1; d <= lines[ln].dice; d++) { //# or dice to roll
-            //randomly choose a die side 
-            let side = Math.floor(Math.random() * lines[ln].sides_array.length);
-            //what is its value?
-            let value = lines[ln].sides_array[side];
-            sum = sum + value;
-          }
-          //add to roll_arrays
-          if (typeof roll_arrays[ln] == "undefined") { //create if required
-            roll_arrays[ln] = [];
-          }
-          if (typeof roll_arrays[ln][sum] == "undefined") { //create if required
-            roll_arrays[ln][sum] = 0;
-          }
-          //increase roll count by 1
-          roll_arrays[ln][sum]++;
-          if (roll_counts[ln] % skip == 0) {
-            postMessage({
-              "roll_counts": roll_counts,
-              "roll_arrays": roll_arrays
-            });
-          }
+  function Start_Worker(input) {
+    let lines = input.lines_toWebworker
+    let skip = input.skip;
+    let roll_arrays = [];
+    let rolls = [];
+    let dice = [];
+    let sides_array = [];
+    let roll_counts = [];
+    let done;
+    do { //for each roll
+      done = 1; //assume we are done. prove otherwise.
+      //for each line
+      for (let ln = 0; ln < lines.length; ln++) {
+        //test to see if all rolls have been completed
+        if (typeof roll_counts[ln] == "undefined") { //create if required
+          roll_counts[ln] = 0;
+        }
+        if (lines[ln].rolls > roll_counts[ln]) { //still not done
+          roll_counts[ln]++;
+          done = 0;
+        } else { //this line is done
+          continue;
+        }
+        //sum dice 
+        let sum = 0;
+        //let sum = 0;
+        for (let d = 1; d <= lines[ln].dice; d++) { //# or dice to roll
+          //randomly choose a die side 
+          let side = Math.floor(Math.random() * lines[ln].sides_array.length);
+          //what is its value?
+          let value = lines[ln].sides_array[side];
+          sum = sum + value;
+        }
+        //add to roll_arrays
+        if (typeof roll_arrays[ln] == "undefined") { //create if required
+          roll_arrays[ln] = [];
+        }
+        if (typeof roll_arrays[ln][sum] == "undefined") { //create if required
+          roll_arrays[ln][sum] = 0;
+        }
+        //increase roll count by 1
+        roll_arrays[ln][sum]++;
+        if (roll_counts[ln] % skip == 0) {
+          postMessage({
+            "roll_counts": roll_counts,
+            "roll_arrays": roll_arrays
+          });
         }
       }
-      while (!done);
-      //one more print!
-      postMessage({
-        "roll_counts": roll_counts,
-        "roll_arrays": roll_arrays
-      });
     }
-  </script>
+    while (!done);
+    //one more print!
+    postMessage({
+      "roll_counts": roll_counts,
+      "roll_arrays": roll_arrays
+    });
+  }
+</script>
   
       <script id="rendered-js" >
 // 4r5d6s means roll 4 times with 5 dice of 6 sides
@@ -988,19 +986,18 @@ function Parse(text) {
     //sides shoud be [1,3,4,5,6]
     sides_array = JSON.parse(sides);
   }
-  //sort side_array
+  //sort side_array. no particular reason
   sides_array = sides_array.sort();
   return [RegExp.$1, RegExp.$2, sides_array];
 }
 
-//get inline webworker code. MUST be outside function if we want concurancy
+//get inline webworker code.
 var inline_webworker_blob = new Blob(
-  [document.querySelector("#worker").textContent],
+  [document.querySelector("#webworker").textContent],
   { type: "text/javascript" }
 );
 
-let webworker; //outside function to be persistant so we can test in function RunForestRun
-
+let webworker; 
 function RunForestRun() {
   document.getElementById("plots").innerHTML = ""; //clear plots if any
   skip = Number(document.getElementById("skip").value);
@@ -1031,7 +1028,7 @@ function RunForestRun() {
     document.getElementById("plots").appendChild(div);
   }
   if (webworker) {
-    //if it is running, shut it down. Our master has requested a new run
+    //if it is running, shut it down. Our human master has requested a new run
     webworker.terminate();
   }
   webworker = new Worker(window.URL.createObjectURL(inline_webworker_blob));
