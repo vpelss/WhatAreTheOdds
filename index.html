@@ -200,7 +200,7 @@ function RunForestRun() {
   }
   if (webworker) {
     //if it is running, shut it down. Our human master has requested a new run
-    webworker.terminate();
+    webworker.terminate(); 
   }
   webworker = new Worker(window.URL.createObjectURL(inline_webworker_blob));
   //messages from webworker
