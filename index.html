@@ -51,9 +51,139 @@ https://blog.demofox.org/2017/07/25/counting-bits-the-normal-distribution/
 </form>
 
 <div id="plots"></div>
+  
+    <script id="rendered-js" >
+//add Sicherman dice 
 
-<script id="webworker" _type="javascript/worker">
-  onmessage = function(event) {
+//move web worker to js
+
+//New format will be 100r10{1..6}5{3,4,6,8,20..30}7{1..5}
+// 1st pass will replace ranges 1..6 with 1,2,3,4,5,6
+//2nd pass will find all x{?} and replace with x copies of [?]
+//then place all arrays in a single array for web worker
+//it will laboriously go to each dice and random chose a value
+
+// 4r5d6s means roll 4 times with 5 dice of 6 sides
+//1000r10d[1,2,3,4,5,6,6,6]s is a six sided die where a roll of 6 is three times more likely.
+// we roll R times. For each roll we roll D dice and take the sum. We then increase the array position of that sum by one
+//see: https://github.com/vpelss/WhatAreTheOdds
+
+//set html events
+let run_forest = document.getElementById("runforest");
+run_forest.onclick = RunForestRun;
+
+function Parse(text) {
+  const re = /^(\d+)r(\d+)d(\d+|\[(?:\d+,)*\d+\])s/;
+  //remove whitespace
+  text = text.trim();
+  text = text.replaceAll(" ", "");
+  const found = text.match(re);
+  if (found == null) {
+    let msg = "Parse error in " + text;
+    console.log(msg);
+    return [null, null, null];
+  }
+  //build die
+  let sides = RegExp.$3;
+  let sides_array;
+  // 3 to [1,2,3];
+  if (!isNaN(sides)) {
+    let numberme = Number(sides);
+    sides_array = [...Array(numberme).keys()].map((x) => x + 1);
+  } else {
+    //sides shoud be [1,3,4,5,6]
+    sides_array = JSON.parse(sides);
+  }
+  //sort side_array. no particular reason
+  sides_array = sides_array.sort();
+  return [RegExp.$1, RegExp.$2, sides_array];
+}
+
+let webworkerurl = fn2workerURL(function_containing_webworker);
+
+let webworker;
+function RunForestRun() {
+  document.getElementById("plots").innerHTML = ""; //clear plots if any
+  skip = Number(document.getElementById("skip").value);
+  let lines_text = document.getElementById("user_input").value;
+  lines_text = lines_text.replaceAll(" ", ""); //space free
+  //get lines
+  lines = lines_text.split(/\r?\n/);
+  lines = lines.filter((x) => x != ""); //remove blank lines
+  let lines_toWebworker = [];
+  let plotty_count = 0;
+  for (let ln = 0; ln < lines.length; ln++) {
+    //for each line
+    let [rolls, dice, sides_array] = Parse(lines[ln]);
+    if (rolls == null) {
+      //line did not parse
+      continue;
+    }
+    lines_toWebworker.push({
+      rolls: rolls,
+      dice: dice,
+      sides_array: sides_array
+    });
+    //create a Ploty for line
+    let div = document.createElement("div");
+    div.style.width = "100%";
+    div.id = "Ploty" + plotty_count;
+    plotty_count++;
+    document.getElementById("plots").appendChild(div);
+  }
+  if (webworker) {
+    //if it is running, shut it down. Our human master has requested a new run
+    webworker.terminate();
+  }
+  
+  //webworker = new Worker(window.URL.createObjectURL(inline_webworker_blob));
+   webworker = new Worker(webworkerurl);
+  
+  //messages from webworker
+  webworker.onmessage = function (event) {
+    let output = event.data;
+    roll_arrays = output.roll_arrays;
+    roll_counts = output.roll_counts;
+    for (let ln = 0; ln < roll_arrays.length; ln++) {
+      //let count = lines[ln]["count"];
+      //outcome_array = lines[ln]["outcome_array"];
+      outcome_array = roll_arrays[ln];
+      //graph them
+      xArray = outcome_array.keys();
+      const data = [
+        {
+          x: xArray,
+          y: outcome_array,
+          type: "bar"
+        }
+      ];
+      const layout = {
+        title: "Line " + (ln + 1) + " : " + roll_counts[ln] + " Dice Rolls Over"
+      };
+      Plotly.newPlot("Ploty" + ln, data, layout);
+    }
+  };
+  //start webworker
+  webworker.postMessage({ skip: skip, lines_toWebworker: lines_toWebworker });
+}
+
+function fn2workerURL(fn) {
+  const blob = new Blob([`(${fn.toString()})()`], { type: "text/javascript" });
+  return URL.createObjectURL(blob);
+}
+
+//WEB WORKER CODE stored in a single function containing nested functions
+function function_containing_webworker() {
+  
+  //this stops codepen from checking for infinite looks here. So be careful!
+  const window = {
+  CP: {
+    shouldStopExecution: () => false,
+    exitedLoop: () => false
+  }
+};
+  
+ onmessage = function(event) {
     var input = event.data;
     Start_Worker(input);
   };
@@ -115,120 +245,6 @@ https://blog.demofox.org/2017/07/25/counting-bits-the-normal-distribution/
       "roll_arrays": roll_arrays
     });
   }
-</script>
-  
-    <script id="rendered-js" >
-//add Sicherman dice 
-
-//New format will be 100r10{1..6}5{3,4,6,8,20..30}7{1..5}
-// 1st pass will replace ranges 1..6 with 1,2,3,4,5,6
-//2nd pass will find all x{?} and replace with x copies of [?]
-//then place all arrays in a single array for web worker
-//it will laboriously go to each dice and random chose a value
-
-// 4r5d6s means roll 4 times with 5 dice of 6 sides
-//1000r10d[1,2,3,4,5,6,6,6]s is a six sided die where a roll of 6 is three times more likely.
-// we roll R times. For each roll we roll D dice and take the sum. We then increase the array position of that sum by one
-//see: https://github.com/vpelss/WhatAreTheOdds
-
-//set html events
-let run_forest = document.getElementById("runforest");
-run_forest.onclick = RunForestRun;
-
-function Parse(text) {
-  const re = /^(\d+)r(\d+)d(\d+|\[(?:\d+,)*\d+\])s/;
-  //remove whitespace
-  text = text.trim();
-  text = text.replaceAll(" ", "");
-  const found = text.match(re);
-  if (found == null) {
-    let msg = "Parse error in " + text;
-    console.log(msg);
-    return [null, null, null];
-  }
-  //build die
-  let sides = RegExp.$3;
-  let sides_array;
-  // 3 to [1,2,3];
-  if (!isNaN(sides)) {
-    let numberme = Number(sides);
-    sides_array = [...Array(numberme).keys()].map((x) => x + 1);
-  } else {
-    //sides shoud be [1,3,4,5,6]
-    sides_array = JSON.parse(sides);
-  }
-  //sort side_array. no particular reason
-  sides_array = sides_array.sort();
-  return [RegExp.$1, RegExp.$2, sides_array];
-}
-
-//get inline webworker code.
-var inline_webworker_blob = new Blob(
-  [document.querySelector("#webworker").textContent],
-  { type: "text/javascript" }
-);
-
-let webworker;
-function RunForestRun() {
-  document.getElementById("plots").innerHTML = ""; //clear plots if any
-  skip = Number(document.getElementById("skip").value);
-  let lines_text = document.getElementById("user_input").value;
-  lines_text = lines_text.replaceAll(" ", ""); //space free
-  //get lines
-  lines = lines_text.split(/\r?\n/);
-  lines = lines.filter((x) => x != ""); //remove blank lines
-  let lines_toWebworker = [];
-  let plotty_count = 0;
-  for (let ln = 0; ln < lines.length; ln++) {
-    //for each line
-    let [rolls, dice, sides_array] = Parse(lines[ln]);
-    if (rolls == null) {
-      //line did not parse
-      continue;
-    }
-    lines_toWebworker.push({
-      rolls: rolls,
-      dice: dice,
-      sides_array: sides_array
-    });
-    //create a Ploty for line
-    let div = document.createElement("div");
-    div.style.width = "100%";
-    div.id = "Ploty" + plotty_count;
-    plotty_count++;
-    document.getElementById("plots").appendChild(div);
-  }
-  if (webworker) {
-    //if it is running, shut it down. Our human master has requested a new run
-    webworker.terminate(); 
-  }
-  webworker = new Worker(window.URL.createObjectURL(inline_webworker_blob));
-  //messages from webworker
-  webworker.onmessage = function (event) {
-    let output = event.data;
-    roll_arrays = output.roll_arrays;
-    roll_counts = output.roll_counts;
-    for (let ln = 0; ln < roll_arrays.length; ln++) {
-      //let count = lines[ln]["count"];
-      //outcome_array = lines[ln]["outcome_array"];
-      outcome_array = roll_arrays[ln];
-      //graph them
-      xArray = outcome_array.keys();
-      const data = [
-        {
-          x: xArray,
-          y: outcome_array,
-          type: "bar"
-        }
-      ];
-      const layout = {
-        title: "Line " + (ln + 1) + " : " + roll_counts[ln] + " Dice Rolls Over"
-      };
-      Plotly.newPlot("Ploty" + ln, data, layout);
-    }
-  };
-  //start webworker
-  webworker.postMessage({ skip: skip, lines_toWebworker: lines_toWebworker });
 }
   </script>
 
