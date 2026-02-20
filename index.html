@@ -35,12 +35,13 @@ https://blog.demofox.org/2017/07/25/counting-bits-the-normal-distribution/
   <label for="user_input">Input dice rolls:</label>
   <br>
   <textarea id="user_input" name="user_input" rows="6" cols="30" placeholder="eg: 4r5d6s means four rolls of 5 dice with six sides">
+2000[1, 3, 4, 5, 6, 8][1, 2, 2, 3, 3, 4]s
 2000r1d2s 
 2000r7d2s 
 2000r1d6s 
 2000r1d[1,2, 3, 4,5, 6]s 
 2000r1d[1,2,2, 3, 4,5, 6]s 
-2000r10d[1,2,2, 3, 4,5, 6]s 
+
 </textarea>
   <p>One entry per line. 1000r10d6s means 1000 rolls of 10 dice with six sides. Dice can be loaded. eg: 1000r10d[1,2,3,4,5,6,6,6]s is a six sided die where a roll of 6 is three times more likely.</p>
   <label for="skip">Plot every:</label>
@@ -116,7 +117,15 @@ https://blog.demofox.org/2017/07/25/counting-bits-the-normal-distribution/
   }
 </script>
   
-      <script id="rendered-js" >
+    <script id="rendered-js" >
+//add Sicherman dice 
+
+//New format will be 100r10{1..6}5{3,4,6,8,20..30}7{1..5}
+// 1st pass will replace ranges 1..6 with 1,2,3,4,5,6
+//2nd pass will find all x{?} and replace with x copies of [?]
+//then place all arrays in a single array for web worker
+//it will laboriously go to each dice and random chose a value
+
 // 4r5d6s means roll 4 times with 5 dice of 6 sides
 //1000r10d[1,2,3,4,5,6,6,6]s is a six sided die where a roll of 6 is three times more likely.
 // we roll R times. For each roll we roll D dice and take the sum. We then increase the array position of that sum by one
@@ -221,7 +230,7 @@ function RunForestRun() {
   //start webworker
   webworker.postMessage({ skip: skip, lines_toWebworker: lines_toWebworker });
 }
-    </script>
+  </script>
 
   
 </body>
